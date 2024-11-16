@@ -1,172 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FPS Camera and Movement System</title>
-  <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
-    #fpsCounter { position: absolute; top: 10px; left: 10px; color: white; font-size: 20px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pooping Simulator</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+            text-align: center;
+        }
+        h1 {
+            font-size: 3rem;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .toilet {
+            position: relative;
+            width: 200px;
+            height: 150px;
+            background-color: #d1c4b1;
+            border-radius: 30px 30px 20px 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            margin-bottom: 30px;
+        }
+        .toilet:before {
+            content: '';
+            position: absolute;
+            top: 120px;
+            left: 40px;
+            width: 120px;
+            height: 30px;
+            background-color: #fff;
+            border-radius: 50%;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        }
+        .poop {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            width: 60px;
+            height: 40px;
+            background-color: brown;
+            border-radius: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: all 1s ease;
+        }
+        button {
+            padding: 15px 30px;
+            background-color: #ff6347;
+            color: white;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #ff4500;
+        }
+    </style>
 </head>
 <body>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script>
-    let scene, camera, renderer, directionalLight, ambientLight;
-    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-    let running = false, walking = false, speed = 0.1, velocity = new THREE.Vector3();
-    let cameraPitch = 0, cameraYaw = 0, sensitivity = 0.002;
-    let lastMousePos = { x: 0, y: 0 };
-    let fpsText;
-    let clock = new THREE.Clock();
-    let headBobbing = 0;
-    let isMouseDown = false;
+    <div class="container">
+        <h1>Pooping Simulator</h1>
+        <div class="toilet">
+            <div class="poop" id="poop"></div>
+        </div>
+        <button id="poopButton">Start Pooping</button>
+    </div>
+    
+    <audio id="poopSound" src="https://www.soundjay.com/button/beep-07.wav"></audio>
+    <audio id="fartSound" src="https://www.soundjay.com/button/button-3.wav"></audio>
 
-    init();
-    animate();
+    <script>
+        const poopButton = document.getElementById('poopButton');
+        const poop = document.getElementById('poop');
+        const poopSound = document.getElementById('poopSound');
+        const fartSound = document.getElementById('fartSound');
 
-    function init() {
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      renderer = new THREE.WebGLRenderer();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
-
-      // Lighting setup
-      ambientLight = new THREE.AmbientLight(0x404040, 0.8);
-      scene.add(ambientLight);
-
-      directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1);
-      directionalLight.position.set(5, 10, 5);
-      directionalLight.castShadow = true;
-      scene.add(directionalLight);
-
-      // Ground setup
-      const groundTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
-      const groundMaterial = new THREE.MeshLambertMaterial({ map: groundTexture });
-      const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), groundMaterial);
-      ground.rotation.x = -Math.PI / 2;
-      ground.position.y = -1;
-      ground.receiveShadow = true;
-      scene.add(ground);
-
-      // FPS Counter
-      fpsText = document.createElement('div');
-      fpsText.id = 'fpsCounter';
-      document.body.appendChild(fpsText);
-
-      // Raycaster setup for object interactions
-      raycaster = new THREE.Raycaster();
-
-      // Handle keyboard and mouse events
-      document.addEventListener('keydown', handleKeyDown);
-      document.addEventListener('keyup', handleKeyUp);
-      document.addEventListener('mousedown', handleMouseDown);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('wheel', handleWheel);
-
-      // Lock the cursor for FPS immersion
-      document.body.style.cursor = 'none';
-      document.addEventListener('click', () => { document.body.requestPointerLock(); });
-
-      // Initial camera position
-      camera.position.set(0, 1.6, 0);  // Start at a reasonable height (like standing)
-    }
-
-    function handleKeyDown(event) {
-      if (event.key === 'w') moveForward = true;
-      if (event.key === 's') moveBackward = true;
-      if (event.key === 'a') moveLeft = true;
-      if (event.key === 'd') moveRight = true;
-      if (event.key === 'Shift') running = true;
-      if (event.key === 'Control') walking = true;
-    }
-
-    function handleKeyUp(event) {
-      if (event.key === 'w') moveForward = false;
-      if (event.key === 's') moveBackward = false;
-      if (event.key === 'a') moveLeft = false;
-      if (event.key === 'd') moveRight = false;
-      if (event.key === 'Shift') running = false;
-      if (event.key === 'Control') walking = false;
-    }
-
-    function handleMouseDown(event) {
-      isMouseDown = true;
-    }
-
-    function handleMouseUp() {
-      isMouseDown = false;
-    }
-
-    function handleMouseMove(event) {
-      if (isMouseDown) {
-        let deltaX = event.movementX;
-        let deltaY = event.movementY;
-
-        // Invert the X and Y mouse movements to correct the behavior
-        cameraYaw -= deltaX * sensitivity; // Yaw rotation (left/right)
-        cameraPitch -= deltaY * sensitivity; // Pitch rotation (up/down)
-
-        // Limit the camera pitch to avoid flipping
-        cameraPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraPitch)); 
-
-        camera.rotation.set(cameraPitch, cameraYaw, 0); // Apply the calculated rotation
-      }
-    }
-
-    function handleWheel(event) {
-      camera.zoom = Math.max(0.1, Math.min(2, camera.zoom + event.deltaY * -0.01));
-      camera.updateProjectionMatrix();
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-
-      let deltaTime = clock.getDelta();
-      let velocityFactor = running ? 0.3 : walking ? 0.05 : 0.1;
-
-      velocity.set(0, 0, 0); // Reset velocity
-
-      // Move relative to the camera's direction
-      let forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-      let right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-
-      // Forward/backward movement (W/S)
-      if (moveForward) velocity.z -= velocityFactor;
-      if (moveBackward) velocity.z += velocityFactor;
-
-      // Left/right movement (A/D)
-      if (moveLeft) velocity.x -= velocityFactor;
-      if (moveRight) velocity.x += velocityFactor;
-
-      // Apply movement
-      camera.position.add(forward.multiplyScalar(velocity.z * deltaTime));
-      camera.position.add(right.multiplyScalar(velocity.x * deltaTime));
-
-      // Camera bobbing effect when moving
-      if (moveForward || moveBackward || moveLeft || moveRight) {
-        headBobbing += deltaTime * 6;
-        camera.position.y = Math.sin(headBobbing) * 0.1 + 1.6; // Small vertical bobbing
-      } else {
-        camera.position.y = 1.6; // Reset to normal height when idle
-        headBobbing = 0;
-      }
-
-      // Update FPS counter
-      fpsText.innerText = `FPS: ${Math.round(1 / deltaTime)}`;
-
-      renderer.render(scene, camera);
-    }
-
-    // Resizing handler
-    window.addEventListener('resize', () => {
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-    });
-  </script>
+        poopButton.addEventListener('click', () => {
+            // Play fart sound effect
+            fartSound.play();
+            
+            // Start pooping animation
+            poop.style.opacity = 1;
+            poop.style.transform = 'translateX(-50%) translateY(100px)';
+            
+            // Play poop sound effect after a slight delay
+            setTimeout(() => {
+                poopSound.play();
+            }, 200);
+            
+            // Reset the poop position and opacity after animation
+            setTimeout(() => {
+                poop.style.opacity = 0;
+                poop.style.transform = 'translateX(-50%) translateY(0)';
+            }, 3000); // Reset after 3 seconds
+        });
+    </script>
 </body>
 </html>
