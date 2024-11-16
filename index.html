@@ -36,12 +36,12 @@
 <body>
     <button id="poopButton">Start Pooping</button>
 
-    <!-- Load Three.js as an ES Module -->
+    <!-- Load Three.js -->
     <script type="module">
-        import * as THREE from 'https://cdn.skypack.dev/three@0.153.0';
+        import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/153/three.module.js';
 
-        // Import Cannon.js as an ES Module
-        import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
+        // Import Cannon.js from jsDelivr CDN
+        import * as CANNON from 'https://cdn.jsdelivr.net/npm/cannon-es@0.23.0/dist/cannon-es.js';
 
         // Scene setup
         const scene = new THREE.Scene();
