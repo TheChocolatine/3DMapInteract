@@ -35,10 +35,14 @@
 </head>
 <body>
     <button id="poopButton">Start Pooping</button>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/cannon-es@0.23.0/dist/cannon-es.js"></script>
 
-    <script>
+    <!-- Load Three.js as an ES Module -->
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.153.0';
+
+        // Import Cannon.js as an ES Module
+        import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
+
         // Scene setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
