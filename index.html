@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>3D Sandbox Game</title>
   <style>
-    body { margin: 0; }
+    body { margin: 0; overflow: hidden; }
     canvas { display: block; }
   </style>
 </head>
@@ -19,30 +19,46 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Add some basic cubes
-    const cubeGeometry = new THREE.BoxGeometry();
-    const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    // Create a ground plane
+    const planeGeometry = new THREE.PlaneGeometry(100, 100);
+    const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.3 });
+    const ground = new THREE.Mesh(planeGeometry, planeMaterial);
+    ground.rotation.x = -Math.PI / 2;  // Rotate to make it flat
+    ground.position.y = -1;  // Position below the cubes
+    scene.add(ground);
+
+    // Add some cubes
+    const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
     const cubes = [];
     for (let i = 0; i < 10; i++) {
       const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-      cube.position.set(Math.random() * 10 - 5, Math.random() * 5, Math.random() * 10 - 5);
+      cube.position.set(Math.random() * 10 - 5, 0.5, Math.random() * 10 - 5);  // Place cubes on the ground
       cubes.push(cube);
       scene.add(cube);
     }
 
     // Set up camera position
-    camera.position.z = 5;
+    camera.position.set(0, 1, 5);  // Set the camera to be above and behind the player
 
-    // Movement variables
+    // Lighting
+    const light = new THREE.PointLight(0xFFFFFF, 1, 100);
+    light.position.set(0, 10, 0);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0x555555));
+
+    // Movement and mouse look
     let moveForward = false;
     let moveBackward = false;
     let moveLeft = false;
     let moveRight = false;
+    let isMouseDown = false;
+    let previousMousePosition = { x: 0, y: 0 };
 
-    const speed = 0.1;
-    const cameraRotationSpeed = 0.02;
+    const speed = 0.1;  // Move speed
+    const mouseSpeed = 0.002;  // Mouse movement speed
 
-    // Handle keyboard input
+    // Keyboard input listener
     document.addEventListener('keydown', (event) => {
       if (event.key === 'w') moveForward = true;
       if (event.key === 's') moveBackward = true;
@@ -57,25 +73,47 @@
       if (event.key === 'd') moveRight = false;
     });
 
-    // Animate the scene
+    // Mouse movement to look around
+    document.addEventListener('mousedown', (event) => {
+      isMouseDown = true;
+      previousMousePosition = { x: event.clientX, y: event.clientY };
+    });
+
+    document.addEventListener('mouseup', () => {
+      isMouseDown = false;
+    });
+
+    document.addEventListener('mousemove', (event) => {
+      if (isMouseDown) {
+        const deltaX = event.clientX - previousMousePosition.x;
+        const deltaY = event.clientY - previousMousePosition.y;
+
+        // Rotate the camera based on mouse movement
+        camera.rotation.y -= deltaX * mouseSpeed;
+        camera.rotation.x -= deltaY * mouseSpeed;
+        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x)); // Clamp vertical rotation
+
+        previousMousePosition = { x: event.clientX, y: event.clientY };
+      }
+    });
+
+    // Animation loop
     function animate() {
       requestAnimationFrame(animate);
 
-      // Move camera based on keyboard input
+      // Camera movement based on WASD keys
       if (moveForward) camera.position.z -= speed;
       if (moveBackward) camera.position.z += speed;
       if (moveLeft) camera.position.x -= speed;
       if (moveRight) camera.position.x += speed;
 
-      // Orbit camera around center
-      camera.rotation.y += cameraRotationSpeed;
-
+      // Render the scene
       renderer.render(scene, camera);
     }
 
     animate();
 
-    // Resize the renderer when the window size changes
+    // Adjust camera aspect ratio on window resize
     window.addEventListener('resize', () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
       camera.aspect = window.innerWidth / window.innerHeight;
