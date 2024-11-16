@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Sandbox Game</title>
+  <title>Enhanced 3D Sandbox</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -19,51 +19,62 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
+    // Lighting setup
+    const ambientLight = new THREE.AmbientLight(0x404040, 1); // Soft white light
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1);
+    directionalLight.position.set(5, 10, 5);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
+
     // Create a ground plane
     const planeGeometry = new THREE.PlaneGeometry(100, 100);
     const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.3 });
     const ground = new THREE.Mesh(planeGeometry, planeMaterial);
-    ground.rotation.x = -Math.PI / 2;  // Rotate to make it flat
-    ground.position.y = -1;  // Position below the cubes
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -1;
     scene.add(ground);
 
-    // Add some cubes
+    // Add cubes
     const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
     const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+
     const cubes = [];
     for (let i = 0; i < 10; i++) {
       const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-      cube.position.set(Math.random() * 10 - 5, 0.5, Math.random() * 10 - 5);  // Place cubes on the ground
+      cube.position.set(Math.random() * 10 - 5, 0.5, Math.random() * 10 - 5);
+      cube.castShadow = true;
+      cube.receiveShadow = true;
       cubes.push(cube);
       scene.add(cube);
     }
 
-    // Set up camera position
-    camera.position.set(0, 1, 5);  // Set the camera to be above and behind the player
+    // Set up camera position and control
+    camera.position.set(0, 2, 10);
+    camera.rotation.x = -0.2;
 
-    // Lighting
-    const light = new THREE.PointLight(0xFFFFFF, 1, 100);
-    light.position.set(0, 10, 0);
-    scene.add(light);
-    scene.add(new THREE.AmbientLight(0x555555));
-
-    // Movement and mouse look
+    // Movement variables
     let moveForward = false;
     let moveBackward = false;
     let moveLeft = false;
     let moveRight = false;
-    let isMouseDown = false;
-    let previousMousePosition = { x: 0, y: 0 };
+    let rotateLeft = false;
+    let rotateRight = false;
 
-    const speed = 0.1;  // Move speed
-    const mouseSpeed = 0.002;  // Mouse movement speed
+    const speed = 0.1;
+    const rotationSpeed = 0.02;
+    let mouseDown = false;
+    let lastMousePos = { x: 0, y: 0 };
 
-    // Keyboard input listener
+    // Key control for movement
     document.addEventListener('keydown', (event) => {
       if (event.key === 'w') moveForward = true;
       if (event.key === 's') moveBackward = true;
       if (event.key === 'a') moveLeft = true;
       if (event.key === 'd') moveRight = true;
+      if (event.key === 'ArrowLeft') rotateLeft = true;
+      if (event.key === 'ArrowRight') rotateRight = true;
     });
 
     document.addEventListener('keyup', (event) => {
@@ -71,29 +82,50 @@
       if (event.key === 's') moveBackward = false;
       if (event.key === 'a') moveLeft = false;
       if (event.key === 'd') moveRight = false;
+      if (event.key === 'ArrowLeft') rotateLeft = false;
+      if (event.key === 'ArrowRight') rotateRight = false;
     });
 
-    // Mouse movement to look around
+    // Mouse controls to look around
     document.addEventListener('mousedown', (event) => {
-      isMouseDown = true;
-      previousMousePosition = { x: event.clientX, y: event.clientY };
+      mouseDown = true;
+      lastMousePos = { x: event.clientX, y: event.clientY };
     });
 
     document.addEventListener('mouseup', () => {
-      isMouseDown = false;
+      mouseDown = false;
     });
 
     document.addEventListener('mousemove', (event) => {
-      if (isMouseDown) {
-        const deltaX = event.clientX - previousMousePosition.x;
-        const deltaY = event.clientY - previousMousePosition.y;
+      if (mouseDown) {
+        const deltaX = event.clientX - lastMousePos.x;
+        const deltaY = event.clientY - lastMousePos.y;
 
-        // Rotate the camera based on mouse movement
-        camera.rotation.y -= deltaX * mouseSpeed;
-        camera.rotation.x -= deltaY * mouseSpeed;
-        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x)); // Clamp vertical rotation
+        // Update camera rotation based on mouse movement
+        camera.rotation.y -= deltaX * 0.002;
+        camera.rotation.x -= deltaY * 0.002;
 
-        previousMousePosition = { x: event.clientX, y: event.clientY };
+        // Clamp the vertical rotation to avoid flipping
+        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+
+        lastMousePos = { x: event.clientX, y: event.clientY };
+      }
+    });
+
+    // Object interaction (click to change color or remove cube)
+    document.addEventListener('click', (event) => {
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(cubes);
+
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        // Change color of the clicked cube
+        object.material.color.setHex(Math.random() * 0xffffff);
       }
     });
 
@@ -101,19 +133,22 @@
     function animate() {
       requestAnimationFrame(animate);
 
-      // Camera movement based on WASD keys
+      // Move camera based on key presses
       if (moveForward) camera.position.z -= speed;
       if (moveBackward) camera.position.z += speed;
       if (moveLeft) camera.position.x -= speed;
       if (moveRight) camera.position.x += speed;
 
-      // Render the scene
+      // Rotate camera based on left/right arrow keys
+      if (rotateLeft) camera.rotation.y -= rotationSpeed;
+      if (rotateRight) camera.rotation.y += rotationSpeed;
+
       renderer.render(scene, camera);
     }
 
     animate();
 
-    // Adjust camera aspect ratio on window resize
+    // Resize handling
     window.addEventListener('resize', () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
       camera.aspect = window.innerWidth / window.innerHeight;
