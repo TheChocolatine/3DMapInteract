@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pooping Simulator</title>
+    <title>Enhanced Pooping Simulator</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -48,7 +48,7 @@
         }
         .poop {
             position: absolute;
-            bottom: 10px;
+            bottom: 20px;
             left: 50%;
             width: 60px;
             height: 40px;
@@ -57,6 +57,24 @@
             transform: translateX(-50%);
             opacity: 0;
             transition: all 1s ease;
+        }
+        .poop.flying {
+            animation: flyPoop 2s forwards;
+        }
+        @keyframes flyPoop {
+            0% {
+                bottom: 20px;
+                transform: translateX(-50%) translateY(0);
+            }
+            50% {
+                bottom: 100px;
+                transform: translateX(-50%) translateY(-150px);
+            }
+            100% {
+                bottom: 150px;
+                opacity: 0;
+                transform: translateX(-50%) translateY(-300px);
+            }
         }
         button {
             padding: 15px 30px;
@@ -71,43 +89,78 @@
         button:hover {
             background-color: #ff4500;
         }
+        .message {
+            font-size: 1.2rem;
+            color: #333;
+            margin-top: 20px;
+            display: none;
+        }
+        .poop-themed {
+            background-color: #6B8E23;
+            animation: poopThemedEffect 3s infinite alternate;
+        }
+        @keyframes poopThemedEffect {
+            0% {
+                background-color: brown;
+            }
+            100% {
+                background-color: darkgreen;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Pooping Simulator</h1>
+        <h1>Enhanced Pooping Simulator</h1>
         <div class="toilet">
             <div class="poop" id="poop"></div>
         </div>
         <button id="poopButton">Start Pooping</button>
+        <div class="message" id="message">Satisfying Poop Complete!</div>
     </div>
     
+    <!-- Sound Effects -->
     <audio id="poopSound" src="https://www.soundjay.com/button/beep-07.wav"></audio>
     <audio id="fartSound" src="https://www.soundjay.com/button/button-3.wav"></audio>
+    <audio id="plopSound" src="https://www.soundjay.com/button/beep-09.wav"></audio>
 
     <script>
         const poopButton = document.getElementById('poopButton');
         const poop = document.getElementById('poop');
+        const message = document.getElementById('message');
         const poopSound = document.getElementById('poopSound');
         const fartSound = document.getElementById('fartSound');
+        const plopSound = document.getElementById('plopSound');
 
         poopButton.addEventListener('click', () => {
             // Play fart sound effect
             fartSound.play();
-            
-            // Start pooping animation
+
+            // Randomly apply a "poop theme" effect (just to add a surprise element)
+            if (Math.random() > 0.5) {
+                poop.classList.add('poop-themed');
+            }
+
+            // Make poop fly with animation
             poop.style.opacity = 1;
-            poop.style.transform = 'translateX(-50%) translateY(100px)';
-            
+            poop.classList.add('flying');
+
             // Play poop sound effect after a slight delay
             setTimeout(() => {
-                poopSound.play();
-            }, 200);
-            
+                plopSound.play();
+            }, 500);
+
+            // Show a message after a short delay
+            setTimeout(() => {
+                message.style.display = 'block';
+            }, 1500);
+
             // Reset the poop position and opacity after animation
             setTimeout(() => {
                 poop.style.opacity = 0;
-                poop.style.transform = 'translateX(-50%) translateY(0)';
+                poop.classList.remove('flying');
+                message.style.display = 'none';
+                poop.classList.remove('poop-themed'); // Reset theme
             }, 3000); // Reset after 3 seconds
         });
     </script>
