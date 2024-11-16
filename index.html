@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Enhanced 3D Sandbox Game</title>
+  <title>Enhanced 3D Sandbox with Smooth Camera & Movement</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -16,12 +16,14 @@
     let scene, camera, renderer, cubes = [], cubeMaterial, directionalLight, ambientLight;
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
     let running = false, walking = false, speed = 0.1, lastTime = 0;
-    let mouseDown = false, lastMousePos = { x: 0, y: 0 }, velocity = 0.1;
     let raycaster, intersects, mouse = new THREE.Vector2();
     let fpsText, skybox, clock = new THREE.Clock();
-    let particleSystem, particles = [];
     let cameraZoom = 1, cameraBobbing = 0, bobbingSpeed = 0.05;
-    
+    let velocity = new THREE.Vector3(0, 0, 0), moveDirection = new THREE.Vector3();
+    let isMouseDown = false;
+    let sensitivity = 0.002, moveSpeed = 0.1;
+
+    // Initialize scene and controls
     init();
     animate();
 
@@ -33,15 +35,15 @@
       document.body.appendChild(renderer.domElement);
 
       // Lighting setup
-      ambientLight = new THREE.AmbientLight(0x404040, 0.8);  // Soft white light
+      ambientLight = new THREE.AmbientLight(0x404040, 0.8);
       scene.add(ambientLight);
-      
+
       directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1);
       directionalLight.position.set(5, 10, 5);
       directionalLight.castShadow = true;
       scene.add(directionalLight);
-      
-      // Ground with texture
+
+      // Ground setup
       const groundTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
       const groundMaterial = new THREE.MeshLambertMaterial({ map: groundTexture });
       const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), groundMaterial);
@@ -50,32 +52,20 @@
       ground.receiveShadow = true;
       scene.add(ground);
 
-      // Cube Material
+      // Cube material setup
       cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-
-      // Add 10 random cubes
       for (let i = 0; i < 10; i++) {
         addCube(Math.random() * 10 - 5, 0.5, Math.random() * 10 - 5);
       }
-
-      // Camera and Controls
-      camera.position.set(0, 2, 10);
-      camera.rotation.x = -0.2;
-      
-      // Skybox
-      const skyboxGeometry = new THREE.BoxGeometry(1000, 1000, 1000);
-      const skyboxMaterial = new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide });
-      skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
-      scene.add(skybox);
 
       // FPS Counter
       fpsText = document.createElement('div');
       fpsText.id = 'fpsCounter';
       document.body.appendChild(fpsText);
 
-      // Raycaster for interactions
+      // Raycaster setup for object interactions
       raycaster = new THREE.Raycaster();
-      
+
       // Handle keyboard and mouse events
       document.addEventListener('keydown', handleKeyDown);
       document.addEventListener('keyup', handleKeyUp);
@@ -84,21 +74,8 @@
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('wheel', handleWheel);
 
-      // Camera movement smoothing
-      let smoothVelocity = new THREE.Vector3();
-      let lastPosition = new THREE.Vector3();
-
-      // Sound setup
-      const listener = new THREE.AudioListener();
-      camera.add(listener);
-      const sound = new THREE.Audio(listener);
-      const audioLoader = new THREE.AudioLoader();
-      audioLoader.load('https://threejs.org/examples/sounds/ambient.mp3', (buffer) => {
-        sound.setBuffer(buffer);
-        sound.setLoop(true);
-        sound.setVolume(0.5);
-        sound.play();
-      });
+      // Mouse controls
+      document.body.style.cursor = 'none'; // Hide cursor for better FPS immersion
     }
 
     function addCube(x, y, z) {
@@ -130,22 +107,20 @@
     }
 
     function handleMouseDown(event) {
-      mouseDown = true;
-      lastMousePos = { x: event.clientX, y: event.clientY };
+      isMouseDown = true;
     }
 
     function handleMouseUp() {
-      mouseDown = false;
+      isMouseDown = false;
     }
 
     function handleMouseMove(event) {
-      if (mouseDown) {
-        let deltaX = event.clientX - lastMousePos.x;
-        let deltaY = event.clientY - lastMousePos.y;
-        camera.rotation.y -= deltaX * 0.002;
-        camera.rotation.x -= deltaY * 0.002;
-        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x)); // Clamp rotation
-        lastMousePos = { x: event.clientX, y: event.clientY };
+      if (isMouseDown) {
+        let deltaX = event.movementX;
+        let deltaY = event.movementY;
+        camera.rotation.y -= deltaX * sensitivity;
+        camera.rotation.x -= deltaY * sensitivity;
+        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x)); // Prevent flipping
       }
     }
 
@@ -157,24 +132,41 @@
 
     function animate() {
       requestAnimationFrame(animate);
+
+      // Get deltaTime
       let deltaTime = clock.getDelta();
+      let velocityFactor = running ? 0.3 : walking ? 0.05 : 0.1;
 
-      // Move player
-      if (moveForward) camera.position.z -= running ? 0.3 : walking ? 0.05 : 0.1;
-      if (moveBackward) camera.position.z += running ? 0.3 : walking ? 0.05 : 0.1;
-      if (moveLeft) camera.position.x -= running ? 0.3 : walking ? 0.05 : 0.1;
-      if (moveRight) camera.position.x += running ? 0.3 : walking ? 0.05 : 0.1;
+      // Camera movement with smooth interpolation
+      moveDirection.set(0, 0, 0); // Reset movement vector
 
-      // FPS counter
+      if (moveForward) moveDirection.z -= velocityFactor;
+      if (moveBackward) moveDirection.z += velocityFactor;
+      if (moveLeft) moveDirection.x -= velocityFactor;
+      if (moveRight) moveDirection.x += velocityFactor;
+
+      velocity.addScaledVector(moveDirection, deltaTime);
+      velocity.multiplyScalar(0.9); // Dampen velocity for smooth movement
+
+      camera.position.add(velocity); // Apply movement to camera position
+
+      // Camera bobbing effect when moving
+      if (moveForward || moveBackward || moveLeft || moveRight) {
+        cameraBobbing += deltaTime * 6;
+        camera.position.y = Math.sin(cameraBobbing) * 0.1 + 1.6; // Small vertical bobbing
+      } else {
+        camera.position.y = 1.6; // Reset to normal height when idle
+        cameraBobbing = 0;
+      }
+
+      // Update FPS counter
       fpsText.innerText = `FPS: ${Math.round(1 / deltaTime)}`;
 
-      // Update the skybox position based on camera movement
-      skybox.position.copy(camera.position);
-
+      // Render the scene
       renderer.render(scene, camera);
     }
 
-    // Resizing
+    // Resizing handler
     window.addEventListener('resize', () => {
       renderer.setSize(window.innerWidth, window.innerHeight);
       camera.aspect = window.innerWidth / window.innerHeight;
