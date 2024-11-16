@@ -13,7 +13,7 @@
 <body>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
-    let scene, camera, renderer, controls, cubes = [], cubeMaterial, directionalLight, ambientLight;
+    let scene, camera, renderer, directionalLight, ambientLight;
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
     let running = false, walking = false, speed = 0.1, velocity = new THREE.Vector3();
     let cameraPitch = 0, cameraYaw = 0, sensitivity = 0.002;
@@ -51,12 +51,6 @@
       ground.receiveShadow = true;
       scene.add(ground);
 
-      // Cube material setup
-      cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-      for (let i = 0; i < 10; i++) {
-        addCube(Math.random() * 10 - 5, 0.5, Math.random() * 10 - 5);
-      }
-
       // FPS Counter
       fpsText = document.createElement('div');
       fpsText.id = 'fpsCounter';
@@ -79,16 +73,6 @@
 
       // Initial camera position
       camera.position.set(0, 1.6, 0);  // Start at a reasonable height (like standing)
-    }
-
-    function addCube(x, y, z) {
-      const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-      const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-      cube.position.set(x, y, z);
-      cube.castShadow = true;
-      cube.receiveShadow = true;
-      cubes.push(cube);
-      scene.add(cube);
     }
 
     function handleKeyDown(event) {
@@ -121,10 +105,15 @@
       if (isMouseDown) {
         let deltaX = event.movementX;
         let deltaY = event.movementY;
-        cameraYaw -= deltaX * sensitivity;
-        cameraPitch -= deltaY * sensitivity;
-        cameraPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraPitch)); // Prevent flipping
-        camera.rotation.set(cameraPitch, cameraYaw, 0);
+
+        // Invert the X and Y mouse movements to correct the behavior
+        cameraYaw -= deltaX * sensitivity; // Yaw rotation (left/right)
+        cameraPitch -= deltaY * sensitivity; // Pitch rotation (up/down)
+
+        // Limit the camera pitch to avoid flipping
+        cameraPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraPitch)); 
+
+        camera.rotation.set(cameraPitch, cameraYaw, 0); // Apply the calculated rotation
       }
     }
 
@@ -141,16 +130,19 @@
 
       velocity.set(0, 0, 0); // Reset velocity
 
-      if (moveForward) velocity.z -= velocityFactor;
-      if (moveBackward) velocity.z += velocityFactor;
-      if (moveLeft) velocity.x -= velocityFactor;
-      if (moveRight) velocity.x += velocityFactor;
-
-      // Calculate movement direction relative to camera orientation
+      // Move relative to the camera's direction
       let forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
       let right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
 
-      // Apply the movement
+      // Forward/backward movement (W/S)
+      if (moveForward) velocity.z -= velocityFactor;
+      if (moveBackward) velocity.z += velocityFactor;
+
+      // Left/right movement (A/D)
+      if (moveLeft) velocity.x -= velocityFactor;
+      if (moveRight) velocity.x += velocityFactor;
+
+      // Apply movement
       camera.position.add(forward.multiplyScalar(velocity.z * deltaTime));
       camera.position.add(right.multiplyScalar(velocity.x * deltaTime));
 
