@@ -1,140 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive 3D Map</title>
-    <!-- Mapbox GL CSS -->
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet">
-    <style>
-        /* Fullscreen map container */
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-        }
-
-        #map {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            right: 0;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Sandbox Game</title>
+  <style>
+    body { margin: 0; }
+    canvas { display: block; }
+  </style>
 </head>
 <body>
-    <div id="map"></div> <!-- Container for the Map -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-    <!-- Mapbox GL JS and Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> <!-- Three.js -->
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script> <!-- Mapbox GL JS -->
+    // Add some basic cubes
+    const cubeGeometry = new THREE.BoxGeometry();
+    const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const cubes = [];
+    for (let i = 0; i < 10; i++) {
+      const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      cube.position.set(Math.random() * 10 - 5, Math.random() * 5, Math.random() * 10 - 5);
+      cubes.push(cube);
+      scene.add(cube);
+    }
 
-    <script>
-        // Mapbox Access Token (replace with your own)
-        mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN';
+    // Set up camera position
+    camera.position.z = 5;
 
-        // Create a Mapbox map instance
-        const map = new mapboxgl.Map({
-            container: 'map', // ID of the map container
-            style: 'mapbox://styles/mapbox/streets-v11', // Map style
-            center: [-74.5, 40], // Longitude, Latitude
-            zoom: 4, // Zoom level
-            pitch: 45, // Angle of the map (to make it 3D)
-            bearing: -17.6, // Orientation of the map
-            antialias: true, // Anti-aliasing for better performance
-        });
+    // Movement variables
+    let moveForward = false;
+    let moveBackward = false;
+    let moveLeft = false;
+    let moveRight = false;
 
-        // Enable 3D terrain with Mapbox
-        map.on('load', function() {
-            map.setTerrain({
-                source: 'mapbox-dem', // DEM source for elevation data
-                exaggeration: 1.5, // Exaggerate the terrain
-            });
+    const speed = 0.1;
+    const cameraRotationSpeed = 0.02;
 
-            // Add 3D buildings
-            map.addLayer({
-                id: 'building',
-                type: 'fill-extrusion',
-                source: {
-                    type: 'vector',
-                    url: 'mapbox://mapbox.mapbox-streets-v8',
-                },
-                'source-layer': 'building',
-                paint: {
-                    'fill-extrusion-color': '#aaa',
-                    'fill-extrusion-height': ['get', 'height'],
-                    'fill-extrusion-base': ['get', 'min_height'],
-                    'fill-extrusion-opacity': 0.6,
-                },
-            });
-        });
+    // Handle keyboard input
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'w') moveForward = true;
+      if (event.key === 's') moveBackward = true;
+      if (event.key === 'a') moveLeft = true;
+      if (event.key === 'd') moveRight = true;
+    });
 
-        // Initialize Three.js for 3D models
-        let scene, camera, renderer, cube;
+    document.addEventListener('keyup', (event) => {
+      if (event.key === 'w') moveForward = false;
+      if (event.key === 's') moveBackward = false;
+      if (event.key === 'a') moveLeft = false;
+      if (event.key === 'd') moveRight = false;
+    });
 
-        function initThree() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
+    // Animate the scene
+    function animate() {
+      requestAnimationFrame(animate);
 
-            // Create a 3D cube
-            const geometry = new THREE.BoxGeometry();
-            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-            cube = new THREE.Mesh(geometry, material);
-            scene.add(cube);
-            
-            camera.position.z = 5;
-        }
+      // Move camera based on keyboard input
+      if (moveForward) camera.position.z -= speed;
+      if (moveBackward) camera.position.z += speed;
+      if (moveLeft) camera.position.x -= speed;
+      if (moveRight) camera.position.x += speed;
 
-        // Create an animation loop for the cube
-        function animate() {
-            requestAnimationFrame(animate);
+      // Orbit camera around center
+      camera.rotation.y += cameraRotationSpeed;
 
-            // Rotate the cube
-            cube.rotation.x += 0.01;
-            cube.rotation.y += 0.01;
+      renderer.render(scene, camera);
+    }
 
-            renderer.render(scene, camera);
-        }
+    animate();
 
-        // Set up Three.js and start animation
-        function init3DLayer() {
-            map.addLayer({
-                id: '3d-layer',
-                type: 'custom',
-                renderingMode: '3d', // Use 3D rendering
-                onAdd: function(map, mbxContext) {
-                    // Link Three.js renderer to Mapbox canvas
-                    renderer = new THREE.WebGLRenderer({
-                        canvas: mbxContext.canvas,
-                        context: mbxContext.gl
-                    });
-
-                    // Initialize Three.js scene and animation
-                    initThree();
-                },
-                render: function(gl, matrix) {
-                    // Update the camera matrix to sync Mapbox with Three.js
-                    const scale = new Float32Array(16);
-                    const rotation = new Float32Array(16);
-                    const translation = new Float32Array(16);
-
-                    // Apply camera transformations from Mapbox to Three.js
-                    map.transform.matrix(scale, rotation, translation);
-
-                    // Set up Three.js rendering
-                    renderer.state.reset();
-                    renderer.render(scene, camera);
-                }
-            });
-        }
-
-        // Initialize the 3D layer
-        map.on('style.load', init3DLayer);
-    </script>
+    // Resize the renderer when the window size changes
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+  </script>
 </body>
 </html>
