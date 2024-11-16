@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Enhanced 3D Sandbox with Smooth Camera & Movement</title>
+  <title>FPS Camera and Movement System</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
@@ -13,17 +13,16 @@
 <body>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
-    let scene, camera, renderer, cubes = [], cubeMaterial, directionalLight, ambientLight;
+    let scene, camera, renderer, controls, cubes = [], cubeMaterial, directionalLight, ambientLight;
     let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-    let running = false, walking = false, speed = 0.1, lastTime = 0;
-    let raycaster, intersects, mouse = new THREE.Vector2();
-    let fpsText, skybox, clock = new THREE.Clock();
-    let cameraZoom = 1, cameraBobbing = 0, bobbingSpeed = 0.05;
-    let velocity = new THREE.Vector3(0, 0, 0), moveDirection = new THREE.Vector3();
+    let running = false, walking = false, speed = 0.1, velocity = new THREE.Vector3();
+    let cameraPitch = 0, cameraYaw = 0, sensitivity = 0.002;
+    let lastMousePos = { x: 0, y: 0 };
+    let fpsText;
+    let clock = new THREE.Clock();
+    let headBobbing = 0;
     let isMouseDown = false;
-    let sensitivity = 0.002, moveSpeed = 0.1;
 
-    // Initialize scene and controls
     init();
     animate();
 
@@ -74,8 +73,12 @@
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('wheel', handleWheel);
 
-      // Mouse controls
-      document.body.style.cursor = 'none'; // Hide cursor for better FPS immersion
+      // Lock the cursor for FPS immersion
+      document.body.style.cursor = 'none';
+      document.addEventListener('click', () => { document.body.requestPointerLock(); });
+
+      // Initial camera position
+      camera.position.set(0, 1.6, 0);  // Start at a reasonable height (like standing)
     }
 
     function addCube(x, y, z) {
@@ -118,51 +121,51 @@
       if (isMouseDown) {
         let deltaX = event.movementX;
         let deltaY = event.movementY;
-        camera.rotation.y -= deltaX * sensitivity;
-        camera.rotation.x -= deltaY * sensitivity;
-        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x)); // Prevent flipping
+        cameraYaw -= deltaX * sensitivity;
+        cameraPitch -= deltaY * sensitivity;
+        cameraPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraPitch)); // Prevent flipping
+        camera.rotation.set(cameraPitch, cameraYaw, 0);
       }
     }
 
     function handleWheel(event) {
-      cameraZoom = Math.max(0.1, Math.min(2, cameraZoom + event.deltaY * -0.01));
-      camera.zoom = cameraZoom;
+      camera.zoom = Math.max(0.1, Math.min(2, camera.zoom + event.deltaY * -0.01));
       camera.updateProjectionMatrix();
     }
 
     function animate() {
       requestAnimationFrame(animate);
 
-      // Get deltaTime
       let deltaTime = clock.getDelta();
       let velocityFactor = running ? 0.3 : walking ? 0.05 : 0.1;
 
-      // Camera movement with smooth interpolation
-      moveDirection.set(0, 0, 0); // Reset movement vector
+      velocity.set(0, 0, 0); // Reset velocity
 
-      if (moveForward) moveDirection.z -= velocityFactor;
-      if (moveBackward) moveDirection.z += velocityFactor;
-      if (moveLeft) moveDirection.x -= velocityFactor;
-      if (moveRight) moveDirection.x += velocityFactor;
+      if (moveForward) velocity.z -= velocityFactor;
+      if (moveBackward) velocity.z += velocityFactor;
+      if (moveLeft) velocity.x -= velocityFactor;
+      if (moveRight) velocity.x += velocityFactor;
 
-      velocity.addScaledVector(moveDirection, deltaTime);
-      velocity.multiplyScalar(0.9); // Dampen velocity for smooth movement
+      // Calculate movement direction relative to camera orientation
+      let forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+      let right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
 
-      camera.position.add(velocity); // Apply movement to camera position
+      // Apply the movement
+      camera.position.add(forward.multiplyScalar(velocity.z * deltaTime));
+      camera.position.add(right.multiplyScalar(velocity.x * deltaTime));
 
       // Camera bobbing effect when moving
       if (moveForward || moveBackward || moveLeft || moveRight) {
-        cameraBobbing += deltaTime * 6;
-        camera.position.y = Math.sin(cameraBobbing) * 0.1 + 1.6; // Small vertical bobbing
+        headBobbing += deltaTime * 6;
+        camera.position.y = Math.sin(headBobbing) * 0.1 + 1.6; // Small vertical bobbing
       } else {
         camera.position.y = 1.6; // Reset to normal height when idle
-        cameraBobbing = 0;
+        headBobbing = 0;
       }
 
       // Update FPS counter
       fpsText.innerText = `FPS: ${Math.round(1 / deltaTime)}`;
 
-      // Render the scene
       renderer.render(scene, camera);
     }
 
